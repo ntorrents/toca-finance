@@ -1,38 +1,71 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
-export async function fetchWithAuth(
-  path: string,
-  options: RequestInit & { token?: string } = {}
-): Promise<Response> {
-  const { token, ...rest } = options as RequestInit & { token?: string };
-  const headers = new Headers(rest.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  return fetch(`${API_BASE}${path}`, { ...rest, headers });
+async function fetchWithAuth(path: string, options: RequestInit = {}): Promise<Response> {
+  return fetch(`${API_BASE}${path}`, {
+    ...options,
+    credentials: "include", // Incluir cookies
+    headers: {
+      ...options.headers,
+    },
+  });
+}
+
+async function safeJson<T>(r: Response): Promise<T> {
+  const contentType = r.headers.get("content-type") ?? "";
+  const text = await r.text();
+  if (!contentType.includes("application/json")) {
+    const msg = r.ok
+      ? "La API no devolvió JSON."
+      : r.status === 500
+        ? "Error 500 en la API. Revisa la terminal donde corre 'vercel dev' para ver el error (base de datos, variables .env)."
+        : `API error (${r.status}).`;
+    throw new Error(msg);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(text || "Respuesta inválida");
+  }
 }
 
 export const api = {
   transactions: {
-    list: (token: string, params?: { category?: string; month?: string; page?: number }) => {
+    list: (params?: { category?: string; month?: string; page?: number }) => {
       const sp = new URLSearchParams();
       if (params?.category) sp.set("category", params.category);
       if (params?.month) sp.set("month", params.month);
       if (params?.page) sp.set("page", String(params.page));
-      return fetchWithAuth(`/api/transactions?${sp}`, { token }).then((r) => r.json());
+      return fetchWithAuth(`/api/transactions?${sp}`).then(safeJson);
     },
-    importCsv: (token: string, body: { csv?: string; rows?: unknown[] }) =>
-      fetchWithAuth("/api/transactions/import", {
+    importFile: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return fetchWithAuth("/api/transactions/import", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        token,
-      }).then((r) => r.json()),
+        body: formData,
+      }).then(safeJson);
+    },
+    importCsv: (csv: string) => {
+      const formData = new FormData();
+      formData.append("csv", csv);
+      return fetchWithAuth("/api/transactions/import", {
+        method: "POST",
+        body: formData,
+      }).then(safeJson);
+    },
   },
-  budgets: (token: string) =>
-    fetchWithAuth("/api/budgets", { token }).then((r) => r.json()),
-  debtAmortization: (token: string) =>
-    fetchWithAuth("/api/debt-amortization", { token }).then((r) => r.json()),
-  dashboard: (token: string, month?: string) =>
-    fetchWithAuth(`/api/dashboard${month ? `?month=${month}` : ""}`, { token }).then((r) =>
-      r.json()
-    ),
+  budgets: {
+    list: () => fetchWithAuth("/api/budgets").then(safeJson),
+    importFile: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return fetchWithAuth("/api/budgets/import", {
+        method: "POST",
+        body: formData,
+      }).then(safeJson);
+    },
+  },
+  debtAmortization: () => fetchWithAuth("/api/debt-amortization").then(safeJson),
+  dashboard: (month?: string) =>
+    fetchWithAuth(`/api/dashboard${month ? `?month=${month}` : ""}`).then(safeJson),
 };

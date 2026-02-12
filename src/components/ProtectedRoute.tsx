@@ -1,11 +1,17 @@
-import { useAuth } from "@clerk/clerk-react";
-import { Navigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
+import { checkAuth } from "@/lib/auth";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, isLoaded } = useAuth();
-  const location = useLocation();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
-  if (!isLoaded) {
+  useEffect(() => {
+    checkAuth().then((auth) => {
+      setIsAuthenticated(auth);
+    });
+  }, []);
+
+  if (isAuthenticated === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">Cargando...</p>
@@ -13,8 +19,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isSignedIn) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;

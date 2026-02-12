@@ -1,73 +1,152 @@
-# React + TypeScript + Vite
+# Nil Finance
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Dashboard financiero personal (gastos, presupuestos, evolución de deuda). React + Vite + TypeScript + Drizzle + Vercel.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Inicio Rápido
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 1. Instalar dependencias
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Configurar variables de entorno
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Crea un archivo `.env.local` en la raíz del proyecto:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+# Base de datos
+DATABASE_URL=postgresql://...
+
+# Autenticación simple
+ADMIN_EMAIL=tu@email.com
+ADMIN_PASSWORD_HASH=sha256_hash_de_tu_contraseña
+SESSION_SECRET=secreto_aleatorio_largo
 ```
+
+**Para generar el hash de contraseña:**
+```bash
+node -e "console.log(require('crypto').createHash('sha256').update('tu_contraseña').digest('hex'))"
+```
+
+**Para generar SESSION_SECRET:**
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+### 3. Crear las tablas en la base de datos
+
+```bash
+npm run db:push
+```
+
+### 4. Ejecutar en desarrollo local
+
+**IMPORTANTE**: Usa `vercel dev` para que las APIs funcionen:
+
+```bash
+# Instalar Vercel CLI si no lo tienes
+npm i -g vercel
+
+# Ejecutar servidor de desarrollo
+vercel dev
+```
+
+**NO uses `npm run dev`** porque Vite no sirve las funciones serverless de Vercel.
+
+Abre http://localhost:3000 y haz login con tu email y contraseña.
+
+---
+
+## 📊 Uso
+
+### Importar Plan de Gastos
+
+1. Ve al Dashboard
+2. Haz clic en **"Importar Presupuesto"**
+3. Sube el archivo Excel "Plan de gastos.xlsx"
+4. Debe tener una hoja llamada "0. Gastos global" con categorías e importes
+
+### Importar Extracto Bancario
+
+1. Haz clic en **"Importar Extracto"**
+2. Sube un CSV o Excel del banco
+3. **Formato esperado**: 
+   - Cabecera en la **primera fila**
+   - Datos desde la **segunda fila**
+   - Columnas: fecha/date, concept/concepto, amount/importe
+
+### Ver Datos
+
+- **Dashboard**: Resumen con gráficos de gastos vs presupuesto y evolución de deuda
+- **Detalle**: Lista completa de movimientos con filtros
+- **Por Categoría**: Vista agrupada por categorías grandes (Casa, Transporte, Ocio, etc.)
+
+---
+
+## 🌐 Despliegue en Vercel
+
+### 1. Conectar proyecto
+
+Si aún no está conectado:
+```bash
+vercel
+```
+
+### 2. Configurar variables de entorno
+
+Ve a tu proyecto en Vercel → **Settings** → **Environment Variables** y añade:
+
+- `DATABASE_URL`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD_HASH`
+- `SESSION_SECRET`
+
+### 3. Desplegar
+
+Haz push a GitHub y Vercel desplegará automáticamente, o ejecuta:
+```bash
+vercel --prod
+```
+
+### 4. Acceso
+
+Una vez desplegado, podrás acceder desde cualquier dispositivo (móvil, tablet, etc.) usando la URL de tu proyecto Vercel.
+
+---
+
+## 🛠️ Comandos
+
+- `vercel dev` - Servidor de desarrollo (con APIs)
+- `npm run build` - Build para producción
+- `npm run db:push` - Aplicar esquema a la base de datos
+- `npm run db:generate` - Generar migraciones
+
+---
+
+## 📁 Estructura
+
+- `/api` - Funciones serverless (Vercel)
+- `/src` - Frontend React
+- `/db` - Esquema y utilidades de base de datos
+
+---
+
+## ⚠️ Solución de Problemas
+
+### "La API no devolvió JSON"
+
+Esto ocurre si usas `npm run dev` en lugar de `vercel dev`. Las APIs solo funcionan con `vercel dev`.
+
+### Error 401 (No autorizado)
+
+- Verifica que tengas las variables de entorno configuradas
+- Asegúrate de estar usando el email y contraseña correctos
+- En producción, verifica que las variables estén en Vercel
+
+### Error 500
+
+- Verifica que las tablas existan: `npm run db:push`
+- Verifica `DATABASE_URL` en las variables de entorno
+- Revisa los logs en Vercel Dashboard → Functions

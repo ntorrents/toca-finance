@@ -11,42 +11,32 @@ import { api } from "@/lib/api";
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void; onSuccess?: () => void };
 
-export function ImportCsvDialog({ open, onOpenChange, onSuccess }: Props) {
+export function ImportBudgetDialog({ open, onOpenChange, onSuccess }: Props) {
   const [file, setFile] = useState<File | null>(null);
-  const [csv, setCsv] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ inserted: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{ inserted: number; categories?: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setCsv("");
-    }
+    setFile(selectedFile || null);
   };
 
   const handleSubmit = async () => {
-    if (!file && !csv.trim()) {
-      setError("Sube un archivo (CSV/Excel) o pega el contenido CSV.");
+    if (!file) {
+      setError("Selecciona un archivo Excel.");
       return;
     }
     setLoading(true);
     setError(null);
     setResult(null);
     try {
-      let res;
-      if (file) {
-        res = await api.transactions.importFile(file);
-      } else {
-        res = await api.transactions.importCsv(csv.trim());
-      }
+      const res = await api.budgets.importFile(file);
       if (res.error) {
         setError(res.error);
       } else {
-        setResult({ inserted: res.inserted ?? 0, skipped: res.skipped ?? 0 });
+        setResult({ inserted: res.inserted ?? 0, categories: res.categories });
         setFile(null);
-        setCsv("");
         onSuccess?.();
       }
     } catch (e) {
@@ -59,7 +49,6 @@ export function ImportCsvDialog({ open, onOpenChange, onSuccess }: Props) {
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setFile(null);
-      setCsv("");
       setResult(null);
       setError(null);
     }
@@ -70,41 +59,42 @@ export function ImportCsvDialog({ open, onOpenChange, onSuccess }: Props) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Importar Extracto Bancario</DialogTitle>
+          <DialogTitle>Importar Plan de Gastos</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Sube un CSV o Excel del banco. El archivo debe tener cabecera en la primera fila y datos desde la segunda.
-            Columnas esperadas: fecha/date, concept/concepto, amount/importe.
+            Sube el archivo Excel "Plan de gastos.xlsx". Debe tener una hoja llamada "0. Gastos global"
+            con las categorías e importes mensuales.
           </p>
           <input
             type="file"
-            accept=".csv,.xls,.xlsx,text/csv"
+            accept=".xlsx,.xls"
             onChange={handleFileChange}
             className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-input file:bg-secondary"
           />
-          <div className="text-center text-sm text-muted-foreground">o</div>
-          <textarea
-            className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-            placeholder="Pega aquí el CSV..."
-            value={csv}
-            onChange={(e) => {
-              setCsv(e.target.value);
-              setFile(null);
-            }}
-          />
           {error && <p className="text-sm text-destructive">{error}</p>}
           {result && (
-            <p className="text-sm text-muted-foreground">
-              Insertados: {result.inserted}, omitidos (duplicados): {result.skipped}.
-            </p>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>Presupuestos importados: {result.inserted}</p>
+              {result.categories && result.categories.length > 0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer">Ver categorías ({result.categories.length})</summary>
+                  <ul className="list-disc list-inside mt-2 max-h-40 overflow-y-auto">
+                    {result.categories.slice(0, 20).map((cat) => (
+                      <li key={cat}>{cat}</li>
+                    ))}
+                    {result.categories.length > 20 && <li>... y {result.categories.length - 20} más</li>}
+                  </ul>
+                </details>
+              )}
+            </div>
           )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cerrar
           </Button>
-          <Button onClick={handleSubmit} disabled={loading || (!file && !csv.trim())}>
+          <Button onClick={handleSubmit} disabled={loading || !file}>
             {loading ? "Importando…" : "Importar"}
           </Button>
         </DialogFooter>
