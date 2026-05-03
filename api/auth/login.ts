@@ -3,7 +3,7 @@ import { verifyPassword, createSession, setSessionCookie } from "../lib/simple-a
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as { email?: string; password?: string };
     const { email, password } = body;
 
     if (!email || !password) {
