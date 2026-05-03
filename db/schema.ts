@@ -7,6 +7,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  integer,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -54,6 +55,18 @@ export const debtAmortization = pgTable("debt_amortization", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/** Metadatos de cada importación; el fichero no se almacena, solo auditoría en BD */
+export const importLogs = pgTable("import_logs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 256 }).notNull(),
+  fileName: varchar("file_name", { length: 512 }).notNull(),
+  status: varchar("status", { length: 32 }).notNull(),
+  inserted: integer("inserted").default(0).notNull(),
+  skipped: integer("skipped").default(0).notNull(),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Tipos inferidos para uso en la app
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
@@ -61,3 +74,5 @@ export type Budget = typeof budgets.$inferSelect;
 export type NewBudget = typeof budgets.$inferInsert;
 export type DebtAmortization = typeof debtAmortization.$inferSelect;
 export type NewDebtAmortization = typeof debtAmortization.$inferInsert;
+export type ImportLog = typeof importLogs.$inferSelect;
+export type NewImportLog = typeof importLogs.$inferInsert;

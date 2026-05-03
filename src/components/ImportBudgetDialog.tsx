@@ -31,7 +31,11 @@ export function ImportBudgetDialog({ open, onOpenChange, onSuccess }: Props) {
     setError(null);
     setResult(null);
     try {
-      const res = await api.budgets.importFile(file);
+      const res = (await api.budgets.importFile(file)) as {
+        error?: string;
+        inserted?: number;
+        categories?: string[];
+      };
       if (res.error) {
         setError(res.error);
       } else {

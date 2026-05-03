@@ -8,6 +8,13 @@
       "when": 1770735047570,
       "tag": "0000_sticky_sue_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770736000000,
+      "tag": "0001_import_logs",
+      "breakpoints": true
     }
   ]
 }

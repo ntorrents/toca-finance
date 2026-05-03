@@ -30,11 +30,13 @@ async function safeJson<T>(r: Response): Promise<T> {
 
 export const api = {
   transactions: {
-    list: (params?: { category?: string; month?: string; page?: number }) => {
+    list: (params?: { category?: string; month?: string; page?: number; limit?: number; q?: string }) => {
       const sp = new URLSearchParams();
       if (params?.category) sp.set("category", params.category);
       if (params?.month) sp.set("month", params.month);
       if (params?.page) sp.set("page", String(params.page));
+      if (params?.limit) sp.set("limit", String(params.limit));
+      if (params?.q) sp.set("q", params.q);
       return fetchWithAuth(`/api/transactions?${sp}`).then(safeJson);
     },
     importFile: (file: File) => {
@@ -68,4 +70,11 @@ export const api = {
   debtAmortization: () => fetchWithAuth("/api/debt-amortization").then(safeJson),
   dashboard: (month?: string) =>
     fetchWithAuth(`/api/dashboard${month ? `?month=${month}` : ""}`).then(safeJson),
+  analytics: (month?: string) =>
+    fetchWithAuth(`/api/analytics${month ? `?month=${month}` : ""}`).then(safeJson),
+  importLogs: (limit?: number) => {
+    const sp = new URLSearchParams();
+    if (limit) sp.set("limit", String(limit));
+    return fetchWithAuth(`/api/import-logs?${sp}`).then(safeJson);
+  },
 };
