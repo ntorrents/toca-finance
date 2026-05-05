@@ -1,7 +1,7 @@
-import { db } from "../../db";
-import { transactions, importLogs } from "../../db/schema";
-import { categorizeFromConcept } from "../../db/categorize";
-import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth";
+import { db } from "../../db/index.js";
+import { transactions, importLogs } from "../../db/schema.js";
+import { categorizeFromConcept } from "../../db/categorize.js";
+import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth.js";
 import Papa from "papaparse";
 import XLSX from "xlsx";
 import { createHash } from "crypto";

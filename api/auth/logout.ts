@@ -1,4 +1,4 @@
-import { getSessionIdFromCookie } from "../lib/simple-auth";
+import { getSessionIdFromCookie } from "../lib/simple-auth.js";
 
 export async function POST(request: Request) {
   const cookieHeader = request.headers.get("Cookie");

@@ -7,7 +7,7 @@ dotenv.config({ path: path.join(process.cwd(), ".env.local"), quiet: true });
 
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import * as schema from "./schema";
+import * as schema from "./schema.js";
 
 const connectionString = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
 
@@ -17,4 +17,4 @@ if (!connectionString) {
 
 const sql = neon(connectionString);
 export const db = drizzle(sql, { schema });
-export * from "./schema";
+export * from "./schema.js";

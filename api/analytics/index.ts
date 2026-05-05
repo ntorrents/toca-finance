@@ -1,7 +1,7 @@
-import { db } from "../../db";
-import { transactions } from "../../db/schema";
+import { db } from "../../db/index.js";
+import { transactions } from "../../db/schema.js";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
-import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth";
+import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth.js";
 
 /** Agrupa categorías como en el cliente (duplicado mínimo por no importar desde src en api serverless) */
 function categoryToMacro(category: string): "necesidades" | "deseos" | "caprichos" | "mascotas" | "otros" {

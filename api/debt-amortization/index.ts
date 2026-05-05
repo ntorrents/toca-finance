@@ -1,7 +1,7 @@
-import { db } from "../../db";
-import { debtAmortization } from "../../db/schema";
+import { db } from "../../db/index.js";
+import { debtAmortization } from "../../db/schema.js";
 import { eq, asc } from "drizzle-orm";
-import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth";
+import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth.js";
 
 export async function GET(request: Request) {
   try {

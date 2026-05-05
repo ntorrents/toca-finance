@@ -1,4 +1,4 @@
-import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth";
+import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth.js";
 
 export async function GET(request: Request) {
   const userId = await getUserIdFromRequest(request);

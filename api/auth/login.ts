@@ -1,5 +1,5 @@
-import { errorResponse } from "../lib/simple-auth";
-import { verifyPassword, createSession, setSessionCookie } from "../lib/simple-auth";
+import { errorResponse } from "../lib/simple-auth.js";
+import { verifyPassword, createSession, setSessionCookie } from "../lib/simple-auth.js";
 
 export async function POST(request: Request) {
   try {

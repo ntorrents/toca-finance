@@ -1,6 +1,6 @@
-import { db } from "../../db";
-import { budgets } from "../../db/schema";
-import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth";
+import { db } from "../../db/index.js";
+import { budgets } from "../../db/schema.js";
+import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth.js";
 import XLSX from "xlsx";
 import { eq } from "drizzle-orm";
 

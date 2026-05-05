@@ -1,7 +1,7 @@
-import { db } from "../../db";
-import { transactions, budgets } from "../../db/schema";
+import { db } from "../../db/index.js";
+import { transactions, budgets } from "../../db/schema.js";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
-import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth";
+import { getUserIdFromRequest, jsonResponse, errorResponse } from "../lib/simple-auth.js";
 
 function monthBounds(ym: string): { start: string; end: string } {
   const start = `${ym}-01`;
