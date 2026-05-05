@@ -1,7 +1,15 @@
 /**
  * Autenticación simple - cliente
  */
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+function getApiBase(): string {
+  const raw = String(import.meta.env.VITE_API_URL ?? "").trim();
+  // Si está vacío o mal formado, usa mismo origen (evita errores de patrón URL).
+  if (!raw) return "";
+  if (!/^https?:\/\//i.test(raw)) return "";
+  return raw.replace(/\/$/, "");
+}
+
+const API_BASE = getApiBase();
 
 export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
   try {

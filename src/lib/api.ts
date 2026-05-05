@@ -1,4 +1,12 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+function getApiBase(): string {
+  const raw = String(import.meta.env.VITE_API_URL ?? "").trim();
+  // Si está vacío o mal formado, usa mismo origen.
+  if (!raw) return "";
+  if (!/^https?:\/\//i.test(raw)) return "";
+  return raw.replace(/\/$/, "");
+}
+
+const API_BASE = getApiBase();
 
 async function fetchWithAuth(path: string, options: RequestInit = {}): Promise<Response> {
   return fetch(`${API_BASE}${path}`, {
