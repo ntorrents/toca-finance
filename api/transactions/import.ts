@@ -169,168 +169,191 @@ async function recordImportLog(
   }
 }
 
+function isDuplicateInsertError(error: unknown): boolean {
+  if (!error) return false;
+  if (typeof error === "object") {
+    const err = error as {
+      code?: string;
+      cause?: { code?: string; detail?: string; constraint?: string };
+      message?: string;
+    };
+    return (
+      err.code === "23505" ||
+      err.cause?.code === "23505" ||
+      /duplicate|unique|already exists/i.test(err.message ?? "") ||
+      /duplicate|already exists/i.test(err.cause?.detail ?? "") ||
+      /transactions_user_hash_idx/i.test(err.cause?.constraint ?? "")
+    );
+  }
+  return /duplicate|unique|already exists/i.test(String(error));
+}
+
 export async function POST(request: Request) {
-  const userId = await getUserIdFromRequest(request);
-  if (!userId) return errorResponse("No autorizado", 401);
+  try {
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) return errorResponse("No autorizado", 401);
 
-  const formData = await request.formData();
-  const file = formData.get("file") as File | null;
-  const csv = formData.get("csv") as string | null;
-  const fileLabel = file?.name ?? (csv ? "texto-pegar.csv" : "archivo");
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
+    const csv = formData.get("csv") as string | null;
+    const fileLabel = file?.name ?? (csv ? "texto-pegar.csv" : "archivo");
 
-  let rows: Array<Record<string, unknown>> = [];
+    let rows: Array<Record<string, unknown>> = [];
 
-  if (file) {
-    const buffer = await file.arrayBuffer();
-    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (file) {
+      const buffer = await file.arrayBuffer();
+      const ext = file.name.split(".").pop()?.toLowerCase();
 
-    if (ext === "xls" || ext === "xlsx") {
-      const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
-      const sheet = pickSheet(workbook);
-      if (!sheet) {
-        await recordImportLog(userId, {
-          fileName: fileLabel,
-          status: "failed",
-          inserted: 0,
-          skipped: 0,
-          errorMessage: "No se pudo leer ninguna hoja del Excel",
-        });
-        return errorResponse("No se pudo leer ninguna hoja del Excel");
+      if (ext === "xls" || ext === "xlsx") {
+        const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
+        const sheet = pickSheet(workbook);
+        if (!sheet) {
+          await recordImportLog(userId, {
+            fileName: fileLabel,
+            status: "failed",
+            inserted: 0,
+            skipped: 0,
+            errorMessage: "No se pudo leer ninguna hoja del Excel",
+          });
+          return errorResponse("No se pudo leer ninguna hoja del Excel");
+        }
+        rows = sheetToObjects(sheet);
+      } else {
+        const text = await file.text();
+        const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true });
+        rows = parsed.data.map((r) => rowFromCsvRecord(r as Record<string, unknown>));
       }
-      rows = sheetToObjects(sheet);
-    } else {
-      const text = await file.text();
-      const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true });
+    } else if (csv) {
+      const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
       rows = parsed.data.map((r) => rowFromCsvRecord(r as Record<string, unknown>));
+    } else {
+      return errorResponse("Envía un archivo (CSV/Excel) o el contenido CSV");
     }
-  } else if (csv) {
-    const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
-    rows = parsed.data.map((r) => rowFromCsvRecord(r as Record<string, unknown>));
-  } else {
-    return errorResponse("Envía un archivo (CSV/Excel) o el contenido CSV");
-  }
 
-  rows = rows.filter((r) => Object.values(r).some((v) => String(v ?? "").trim() !== ""));
+    rows = rows.filter((r) => Object.values(r).some((v) => String(v ?? "").trim() !== ""));
 
-  if (rows.length === 0) {
-    await recordImportLog(userId, {
-      fileName: fileLabel,
-      status: "failed",
-      inserted: 0,
-      skipped: 0,
-      errorMessage: "Sin filas de datos",
-    });
-    return errorResponse("No se encontraron datos (revisa la pestaña Extracto o la fila de cabecera)");
-  }
+    if (rows.length === 0) {
+      await recordImportLog(userId, {
+        fileName: fileLabel,
+        status: "failed",
+        inserted: 0,
+        skipped: 0,
+        errorMessage: "Sin filas de datos",
+      });
+      return errorResponse("No se encontraron datos (revisa la pestaña Extracto o la fila de cabecera)");
+    }
 
-  const toInsert: Array<{
-    userId: string;
-    date: string;
-    concept: string;
-    amount: string;
-    category: string;
-    type: string;
-    source: string;
-    transactionHash: string;
-  }> = [];
+    const toInsert: Array<{
+      userId: string;
+      date: string;
+      concept: string;
+      amount: string;
+      category: string;
+      type: string;
+      source: string;
+      transactionHash: string;
+    }> = [];
 
-  for (const row of rows) {
-    const raw = row as Record<string, unknown>;
+    for (const row of rows) {
+      const raw = row as Record<string, unknown>;
 
-    let date = "";
-    for (const key of Object.keys(raw)) {
-      if (/fecha|date|operaci|valor/i.test(key)) {
-        const val = raw[key];
-        const d = toISODate(val);
-        if (d) {
-          date = d;
+      let date = "";
+      for (const key of Object.keys(raw)) {
+        if (/fecha|date|operaci|valor/i.test(key)) {
+          const val = raw[key];
+          const d = toISODate(val);
+          if (d) {
+            date = d;
+            break;
+          }
+        }
+      }
+      if (!date) continue;
+
+      let concept = "";
+      for (const key of Object.keys(raw)) {
+        if (/concepto|concept|description|descripcion/i.test(key)) {
+          concept = String(raw[key] ?? "").trim();
+          if (concept) break;
+        }
+      }
+      if (!concept) continue;
+
+      let amountNum = 0;
+      for (const key of Object.keys(raw)) {
+        if (/importe|amount|monto|cantidad/i.test(key)) {
+          amountNum = parseAmount(raw[key]);
+          if (amountNum !== 0) break;
+        }
+      }
+      if (amountNum === 0) continue;
+
+      const type = amountNum >= 0 ? "income" : "expense";
+      const amountStr = Math.abs(amountNum).toFixed(2);
+
+      let category = "";
+      for (const key of Object.keys(raw)) {
+        if (/categoria|category/i.test(key)) {
+          category = String(raw[key] ?? "").trim();
           break;
         }
       }
-    }
-    if (!date) continue;
+      if (!category || category === "Otros") category = categorizeFromConcept(concept);
 
-    let concept = "";
-    for (const key of Object.keys(raw)) {
-      if (/concepto|concept|description|descripcion/i.test(key)) {
-        concept = String(raw[key] ?? "").trim();
-        if (concept) break;
+      const transactionHash = hashRow(date, amountStr, concept);
+      toInsert.push({
+        userId,
+        date,
+        concept,
+        amount: amountStr,
+        category,
+        type,
+        source: "excel",
+        transactionHash,
+      });
+    }
+
+    if (toInsert.length === 0) {
+      await recordImportLog(userId, {
+        fileName: fileLabel,
+        status: "failed",
+        inserted: 0,
+        skipped: 0,
+        errorMessage: "Ningún movimiento válido (fecha, concepto e importe)",
+      });
+      return errorResponse("No se importó ningún movimiento válido");
+    }
+
+    let inserted = 0;
+    let skipped = 0;
+    for (const row of toInsert) {
+      try {
+        await db.insert(transactions).values(row).execute();
+        inserted++;
+      } catch (e) {
+        if (isDuplicateInsertError(e)) skipped++;
+        else {
+          await recordImportLog(userId, {
+            fileName: fileLabel,
+            status: "failed",
+            inserted,
+            skipped,
+            errorMessage: e instanceof Error ? e.message : String(e),
+          });
+          throw e;
+        }
       }
     }
-    if (!concept) continue;
 
-    let amountNum = 0;
-    for (const key of Object.keys(raw)) {
-      if (/importe|amount|monto|cantidad/i.test(key)) {
-        amountNum = parseAmount(raw[key]);
-        if (amountNum !== 0) break;
-      }
-    }
-    if (amountNum === 0) continue;
-
-    const type = amountNum >= 0 ? "income" : "expense";
-    const amountStr = Math.abs(amountNum).toFixed(2);
-
-    let category = "";
-    for (const key of Object.keys(raw)) {
-      if (/categoria|category/i.test(key)) {
-        category = String(raw[key] ?? "").trim();
-        break;
-      }
-    }
-    if (!category || category === "Otros") category = categorizeFromConcept(concept);
-
-    const transactionHash = hashRow(date, amountStr, concept);
-    toInsert.push({
-      userId,
-      date,
-      concept,
-      amount: amountStr,
-      category,
-      type,
-      source: "excel",
-      transactionHash,
-    });
-  }
-
-  if (toInsert.length === 0) {
     await recordImportLog(userId, {
       fileName: fileLabel,
-      status: "failed",
-      inserted: 0,
-      skipped: 0,
-      errorMessage: "Ningún movimiento válido (fecha, concepto e importe)",
+      status: "completed",
+      inserted,
+      skipped,
     });
-    return errorResponse("No se importó ningún movimiento válido");
+
+    return jsonResponse({ inserted, skipped, total: toInsert.length });
+  } catch (e) {
+    return errorResponse(e instanceof Error ? e.message : String(e), 500);
   }
-
-  let inserted = 0;
-  let skipped = 0;
-  for (const row of toInsert) {
-    try {
-      await db.insert(transactions).values(row).execute();
-      inserted++;
-    } catch (e) {
-      if (String(e).includes("unique") || String(e).includes("duplicate")) skipped++;
-      else {
-        await recordImportLog(userId, {
-          fileName: fileLabel,
-          status: "failed",
-          inserted,
-          skipped,
-          errorMessage: e instanceof Error ? e.message : String(e),
-        });
-        throw e;
-      }
-    }
-  }
-
-  await recordImportLog(userId, {
-    fileName: fileLabel,
-    status: "completed",
-    inserted,
-    skipped,
-  });
-
-  return jsonResponse({ inserted, skipped, total: toInsert.length });
 }
