@@ -2,20 +2,39 @@
 
 ## Desarrollo Local
 
-**IMPORTANTE**: Para que las APIs funcionen en local, debes usar:
+Tienes **dos formas** (elige una):
+
+### A) Solo Vercel (recomendado)
 
 ```bash
 vercel dev
 ```
 
-NO uses `npm run dev` porque Vite no sirve las funciones serverless de Vercel.
+Abre la URL que imprime la CLI (suele ser `http://localhost:3000`). Ahí el frontend y `/api/*` van juntos.
 
-Si no tienes `vercel` CLI instalado:
+### B) Vite (5173) + API en paralelo
+
+1. Terminal 1 — API + entorno Vercel (deja este proceso en marcha):
+
+```bash
+vercel dev
+```
+
+(Por defecto escucha en el puerto **3000**, que es el que usa el proxy de Vite.)
+
+2. Terminal 2 — interfaz con HMR; las peticiones a `/api` se proxifican al puerto 3000:
+
+```bash
+npm run dev
+```
+
+Abre `http://localhost:5173`.
+
+Si no tienes la CLI:
+
 ```bash
 npm i -g vercel
 ```
-
-Luego ejecuta `vercel dev` desde la raíz del proyecto.
 
 ## Variables de Entorno en Vercel
 

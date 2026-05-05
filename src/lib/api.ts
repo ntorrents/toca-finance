@@ -1,6 +1,7 @@
 function getApiBase(): string {
+  if (import.meta.env.DEV) return "";
+
   const raw = String(import.meta.env.VITE_API_URL ?? "").trim();
-  // Si está vacío o mal formado, usa mismo origen.
   if (!raw) return "";
   if (!/^https?:\/\//i.test(raw)) return "";
   return raw.replace(/\/$/, "");

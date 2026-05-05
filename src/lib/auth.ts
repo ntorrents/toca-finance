@@ -2,8 +2,11 @@
  * Autenticación simple - cliente
  */
 function getApiBase(): string {
+  // En desarrollo: siempre mismo origen (Vite + proxy /api → vercel dev).
+  // Así no llamas por error a producción por un VITE_API_URL del .env.
+  if (import.meta.env.DEV) return "";
+
   const raw = String(import.meta.env.VITE_API_URL ?? "").trim();
-  // Si está vacío o mal formado, usa mismo origen (evita errores de patrón URL).
   if (!raw) return "";
   if (!/^https?:\/\//i.test(raw)) return "";
   return raw.replace(/\/$/, "");

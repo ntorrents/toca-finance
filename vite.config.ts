@@ -11,4 +11,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // `npm run dev` (5173): reenvía /api al backend de `vercel dev` (por defecto :3000).
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:3000",
+        changeOrigin: true,
+      },
+    },
+  },
 });

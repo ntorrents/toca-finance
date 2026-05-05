@@ -3,14 +3,25 @@ import { verifyPassword, createSession, setSessionCookie } from "../lib/simple-a
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { email?: string; password?: string };
-    const { email, password } = body;
+    let body: { email?: string; password?: string };
+    try {
+      body = (await request.json()) as { email?: string; password?: string };
+    } catch {
+      return errorResponse("Cuerpo JSON inválido", 400);
+    }
+    const email = body.email?.trim() ?? "";
+    const password = body.password ?? "";
 
     if (!email || !password) {
       return errorResponse("Email y contraseña requeridos", 400);
     }
 
-    if (email !== process.env.ADMIN_EMAIL) {
+    const adminEmail = (process.env.ADMIN_EMAIL ?? "").trim();
+    if (!adminEmail) {
+      return errorResponse("Servidor sin ADMIN_EMAIL configurado", 500);
+    }
+
+    if (email !== adminEmail) {
       return errorResponse("Credenciales inválidas", 401);
     }
 

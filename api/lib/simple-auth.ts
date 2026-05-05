@@ -2,7 +2,7 @@
  * Autenticación simple sin Clerk
  * Para uso personal: email/password desde .env
  */
-import { createHash, randomBytes } from "crypto";
+import { createHash, createHmac, timingSafeEqual, randomBytes } from "crypto";
 import path from "path";
 import dotenv from "dotenv";
 
@@ -18,45 +18,61 @@ for (const envPath of [
 }
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@example.com";
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH ?? createHash("sha256").update("admin123").digest("hex");
+const ADMIN_PASSWORD_HASH = (
+  process.env.ADMIN_PASSWORD_HASH ?? createHash("sha256").update("admin123").digest("hex")
+)
+  .trim()
+  .toLowerCase();
 const SESSION_SECRET = process.env.SESSION_SECRET ?? randomBytes(32).toString("hex");
-
-// Sesiones en memoria (en producción usar Redis o DB)
-const sessions = new Map<string, { userId: string; email: string; expires: number }>();
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
 }
 
-function createSessionId(): string {
-  return randomBytes(32).toString("hex");
+export function verifyPassword(password: string): boolean {
+  return hashPassword(password).toLowerCase() === ADMIN_PASSWORD_HASH;
 }
 
-export function verifyPassword(password: string): boolean {
-  return hashPassword(password) === ADMIN_PASSWORD_HASH;
+function signSessionPayload(payload: string): string {
+  return createHmac("sha256", SESSION_SECRET).update(payload).digest("hex");
 }
 
 export function createSession(email: string): string {
-  const sessionId = createSessionId();
-  sessions.set(sessionId, {
-    userId: `user_${email.replace(/[^a-zA-Z0-9]/g, "_")}`,
+  const expires = Date.now() + 7 * 24 * 60 * 60 * 1000;
+  const payload = JSON.stringify({
     email,
-    expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 días
+    userId: `user_${email.replace(/[^a-zA-Z0-9]/g, "_")}`,
+    expires,
   });
-  return sessionId;
+  const encoded = Buffer.from(payload, "utf8").toString("base64url");
+  const signature = signSessionPayload(encoded);
+  return `${encoded}.${signature}`;
 }
 
-export function getSession(sessionId: string): { userId: string; email: string } | null {
-  const session = sessions.get(sessionId);
-  if (!session || session.expires < Date.now()) {
-    sessions.delete(sessionId);
+export function getSession(sessionToken: string): { userId: string; email: string } | null {
+  const [encoded, signature] = sessionToken.split(".");
+  if (!encoded || !signature) return null;
+
+  const expected = signSessionPayload(encoded);
+  const sigBuf = Buffer.from(signature, "utf8");
+  const expBuf = Buffer.from(expected, "utf8");
+
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
     return null;
   }
-  return { userId: session.userId, email: session.email };
-}
 
-export function deleteSession(sessionId: string): void {
-  sessions.delete(sessionId);
+  try {
+    const parsed = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as {
+      email?: string;
+      userId?: string;
+      expires?: number;
+    };
+    if (!parsed.email || !parsed.userId || !parsed.expires) return null;
+    if (parsed.expires < Date.now()) return null;
+    return { userId: parsed.userId, email: parsed.email };
+  } catch {
+    return null;
+  }
 }
 
 export function getSessionIdFromCookie(cookieHeader: string | null): string | null {

@@ -1,11 +1,8 @@
-import { getSessionIdFromCookie, deleteSession } from "../lib/simple-auth";
+import { getSessionIdFromCookie } from "../lib/simple-auth";
 
 export async function POST(request: Request) {
   const cookieHeader = request.headers.get("Cookie");
-  const sessionId = getSessionIdFromCookie(cookieHeader);
-  if (sessionId) {
-    deleteSession(sessionId);
-  }
+  getSessionIdFromCookie(cookieHeader);
 
   return new Response(JSON.stringify({ success: true }), {
     status: 200,
